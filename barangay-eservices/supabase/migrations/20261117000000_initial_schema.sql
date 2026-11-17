@@ -148,6 +148,7 @@ create table public.activity_logs (
   entity_type text check (entity_type is null or char_length(entity_type) <= 40),
   entity_id text,
   details text check (details is null or char_length(details) <= 500),
+  ip_address text,
   created_at timestamptz not null default now()
 );
 

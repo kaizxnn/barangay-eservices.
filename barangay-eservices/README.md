@@ -5,9 +5,9 @@ The deployable app is in [`web/`](web/): Next.js App Router, Supabase Auth/Postg
 ## Deploy to Vercel
 
 1. Create a Supabase project and open its **SQL Editor**.
-2. Run [`supabase/migrations/20261117000000_initial_schema.sql`](supabase/migrations/20261117000000_initial_schema.sql). This creates the Postgres tables, Auth profile trigger, row-level security policies, workflow functions, and public logo bucket.
+2. Run each SQL migration in `supabase/migrations/` in filename order. This creates the Postgres tables, Auth profile trigger, row-level security policies, workflow functions, and public logo bucket. On an existing project, apply only migrations that have not already run.
    - Alternatively, from this project directory, run `npx supabase login`, `npx supabase link --project-ref YOUR_PROJECT_REF`, then `npx supabase db push`.
-3. In Supabase **Authentication → URL Configuration**, set the Site URL to your production website URL and add your local and Vercel preview URLs to the redirect allow list. Configure SMTP in Supabase Auth if verification emails should be delivered reliably.
+3. In Supabase **Authentication → URL Configuration**, set the Site URL to your production website URL and add your local and Vercel preview URLs, including `/auth/callback`, to the redirect allow list. Configure SMTP in Supabase Auth if verification and password-reset emails should be delivered reliably.
 4. Import the Git repository into Vercel and set **Root Directory** to the folder containing `package.json`: `web` if `barangay-eservices` is the Git root, or `barangay-eservices/web` if the outer wrapper folder is the Git root.
 5. Add these Vercel environment variables for Development, Preview, and Production:
 
@@ -50,7 +50,14 @@ npm run dev
 
 ### Existing MySQL data
 
-The old `database/*.sql` files are MySQL dumps and must **not** be run in Supabase. This conversion creates a new Postgres schema; it does not automatically copy existing MySQL records. IDs now use UUIDs tied to Supabase Auth, so any records that need to be retained must be exported and mapped to new Auth users and profile IDs before importing. Existing PHP password hashes and demo logins cannot be used as Supabase Auth credentials; users need to register or reset passwords. Back up the original MySQL database before a separate data-migration exercise.
+The MySQL dump must **not** be pasted into Supabase SQL Editor. A one-time importer maps the legacy users, barangay settings, puroks, document services and requirements, requests, concerns, histories, and activity logs into the new Supabase schema. Back up the old database and run the importer only after the Supabase schema migration has completed.
+
+1. In `web`, set `SUPABASE_SERVICE_ROLE_KEY` in your local `.env.local` using the key from **Supabase → Project Settings → API Keys**. Keep this key local; never add it to Vercel, commit it, or use a `NEXT_PUBLIC_` name. The importer also reads `NEXT_PUBLIC_SUPABASE_URL` from `.env.local`.
+2. If the initial schema is already installed, run the unapplied `20261118000000_add_activity_log_ip_address.sql` migration in Supabase SQL Editor.
+3. From the `web` directory, first run `npm run migrate:legacy:check`. This parses the default dump without connecting to Supabase or changing data.
+4. If the check succeeds, run `npm run migrate:legacy`. The default source is `database/barangay_eservices.sql`. You can specify another SQL dump path after the command.
+
+The importer preserves existing accounts by matching email addresses, maps old integer IDs to Supabase UUIDs, merges matching reference data, and can be safely rerun. PHP password hashes and old email-verification tokens are deliberately not imported. New Auth accounts get random passwords that are discarded, so their owners must use **Forgot your password?** after SMTP is configured in Supabase Auth. Accounts that were not verified in the old database may need administrator help to verify or recreate them. The old logo file is not included in the SQL dump and must be uploaded separately.
 
 The application uses database row-level security for resident privacy and role checks. Workflow changes run through Postgres functions so status transitions, fee snapshots, and history rows are validated together. The Supabase service-role key is not needed by the app and must never be added to client-visible environment variables.
 

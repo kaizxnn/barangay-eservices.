@@ -102,6 +102,45 @@ export async function signUp(formData: FormData) {
   redirect("/auth/verify");
 }
 
+export async function requestPasswordReset(formData: FormData) {
+  const email = formString(formData, "email").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    fail("/auth/forgot-password", "Enter a valid email address.");
+  }
+
+  const supabase = await createActionClient();
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: baseUrl ? `${baseUrl}/auth/callback?next=/auth/update-password` : undefined,
+  });
+  if (error) {
+    console.error("Password reset request failed", { code: error.code, message: error.message });
+    fail("/auth/forgot-password", "Could not send a password reset email. Check the Supabase Auth email settings and try again.");
+  }
+  redirect("/auth/forgot-password?sent=1");
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("confirm_password") ?? "");
+  if (password.length < 10) fail("/auth/update-password", "Use a password with at least 10 characters.");
+  if (password !== confirmation) fail("/auth/update-password", "The passwords do not match.");
+
+  const supabase = await createActionClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    if (userError) console.error("Password reset session could not be verified", userError.message);
+    fail("/auth/forgot-password", "The reset link is invalid or expired. Request a new one.");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    console.error("Password update failed", { code: error.code, message: error.message });
+    fail("/auth/update-password", "Could not update the password. Request a new reset link and try again.");
+  }
+  redirect("/auth/login?notice=password-updated");
+}
+
 export async function signOut() {
   const supabase = await createActionClient();
   const { error } = await supabase.auth.signOut();

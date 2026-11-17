@@ -32,10 +32,10 @@ return [
         'port'       => 587,
         'encryption' => 'tls',          // 'tls' (STARTTLS, port 587), 'ssl' (port 465) or '' (none)
         'username'   => '
-dominiquedatuin11@gmail.com',
-        'password'   => 'xkjt bdye oxxl fgqo',
+renz.gabun10@gmail.com',
+        'password'   => 'ezya kcyv fkhq lbhp',
         'from_email' => '
-dominiquedatuin11@gmail.com',
+renz.gabun10@gmail.com',
         'from_name'  => '',             // leave empty to use "<Barangay name> E-Services"
     ],
 
