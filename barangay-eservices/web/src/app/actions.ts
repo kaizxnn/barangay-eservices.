@@ -16,6 +16,39 @@ function checkSupabaseError(error: { message: string } | null, fallback: string)
   throw new Error(fallback);
 }
 
+function registrationErrorMessage(error: { code?: string; message: string }): string {
+  const message = error.message.toLowerCase();
+  switch (error.code) {
+    case "user_already_exists":
+    case "email_exists":
+      return "An account with that email already exists. Sign in, or contact the administrator if you need a password reset.";
+    case "weak_password":
+      return "That password does not meet the security requirements. Try a longer password with a mix of letters, numbers, and symbols.";
+    case "signup_disabled":
+    case "email_provider_disabled":
+      return "Email registration is currently disabled. Contact the site administrator.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "Too many registration or email attempts. Wait a few minutes before trying again.";
+    case "email_address_invalid":
+      return "Supabase rejected that email address. Check the address and try again.";
+    case "email_address_not_authorized":
+      return "Supabase has not authorized email delivery to that address. Configure an SMTP provider in Supabase Auth.";
+  }
+
+  if (message.includes("redirect") || message.includes("allow list") || message.includes("allowlist")) {
+    return "The email verification redirect URL is not allowed. Add your Vercel URL ending in /auth/callback to Supabase Authentication → URL Configuration → Redirect URLs.";
+  }
+  if (message.includes("database error saving new user") || message.includes("database error")) {
+    return "Supabase could not create the account profile. Check that the database migration ran successfully; the Supabase Auth/Postgres logs contain the specific database error.";
+  }
+  if (message.includes("already registered") || message.includes("already exists")) {
+    return "An account with that email already exists. Sign in, or contact the administrator if you need a password reset.";
+  }
+
+  return "Registration failed. Check the Supabase Auth logs for the specific reason, then try again.";
+}
+
 export async function signIn(formData: FormData) {
   const email = formString(formData, "email").toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -63,10 +96,8 @@ export async function signUp(formData: FormData) {
     },
   });
   if (error) {
-    console.error("Registration failed", error.message);
-    fail("/auth/register", error.message.includes("already registered")
-      ? "An account with that email already exists."
-      : "Could not create your account. Check your details and try again.");
+    console.error("Registration failed", { code: error.code, status: error.status, message: error.message });
+    fail("/auth/register", registrationErrorMessage(error));
   }
   redirect("/auth/verify");
 }
