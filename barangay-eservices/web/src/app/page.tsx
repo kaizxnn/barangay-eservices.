@@ -7,15 +7,16 @@ export default async function HomePage() {
   const [
     { data: settings, error: settingsError },
     { data: services, error: servicesError },
-    { data: { user }, error: authError },
+    { data: { session }, error: authError },
   ] = await Promise.all([
     supabase.from("barangay_settings").select("barangay_name,municipality,province,office_hours,logo_path").eq("id", true).maybeSingle(),
     supabase.from("document_types").select("id,name,description,fee,processing_days").eq("is_archived", false).order("name").limit(6),
-    supabase.auth.getUser(),
+    supabase.auth.getSession(),
   ]);
   if (settingsError) throw new Error(`Could not load barangay settings: ${settingsError.message}`);
   if (servicesError) throw new Error(`Could not load public services: ${servicesError.message}`);
-  if (authError) throw new Error(`Could not verify the current session: ${authError.message}`);
+  if (authError) throw new Error(`Could not read the current session: ${authError.message}`);
+  const user = session?.user ?? null;
 
   const location = [settings?.municipality, settings?.province].filter(Boolean).join(", ");
   const name = settings?.barangay_name ? `Barangay ${settings.barangay_name}` : "Barangay E-Services";
